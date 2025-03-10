@@ -55,7 +55,7 @@ jobs:
     if: |
       github.event.action != 'pull_request' &&
       github.ref == 'refs/heads/master'     &&
-      github.repository == 'Cxbx-Reloaded/Cxbx-Reloaded'
+      github.repository == 'RenolY2/Cxbx-Reloaded'
     needs: build-windows
     runs-on: ubuntu-latest
     steps:
