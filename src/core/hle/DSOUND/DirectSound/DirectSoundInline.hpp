@@ -1329,19 +1329,36 @@ static inline HRESULT HybridDirectSoundBuffer_SetMixBinVolumes_8(
 
         // Since we cannot set per-channel volumes, we want to pick "dominant" volume
         LONG maxVolume = DSBVOLUME_MIN;
+        LONG count = 0;
+
         for(unsigned i = 0; i < Xb_VoiceProperties.dwMixBinCount; i++) {
             const auto& it_out = Xb_VoiceProperties.MixBinVolumePairs[i];
             if (it_out.dwMixBin != XDSMIXBIN_LOW_FREQUENCY && it_out.dwMixBin < XDSMIXBIN_SPEAKERS_MAX) {
+                count += 1;
                 if (maxVolume < it_out.lVolume) {
                     maxVolume = it_out.lVolume;
                 }
             }
         }
 
-        Xb_volumeMixBin = maxVolume;
-        int32_t Xb_volume = Xb_Voice->GetVolume() + Xb_Voice->GetHeadroom();
-        hRet = HybridDirectSoundBuffer_SetVolume(pDSBuffer, Xb_volume, EmuFlags,
-                                                    Xb_volumeMixBin, Xb_Voice);
+        // This fixes the issue of no sound playing in StarCraft: Ghost. The cause of that is the above code only
+        // finds two mixbins, one for dwMixBin value XDSMIXBIN_LOW_FREQUENCY and one for dwMixBin value 10,
+        // thus the maxVolume remains at DSBVOLUME_MIN.
+        // The way to handle this is inspired by how Cxbx handled this function in build CI-f8593e6 and before:
+        // Don't set the volume if no fitting mixbins were found.
+        // The sound will play again but the audio emulation is still wrong. Incorrect handling of spatial sound makes
+        // sounds appear too loud as they are played at max volume regardless of distance/direction.
+        if (count != 0) {
+            Xb_volumeMixBin = maxVolume;
+            int32_t Xb_volume = Xb_Voice->GetVolume() + Xb_Voice->GetHeadroom();
+            hRet = HybridDirectSoundBuffer_SetVolume(pDSBuffer, Xb_volume, EmuFlags,
+                Xb_volumeMixBin, Xb_Voice);
+        }
+        else {
+            hRet = DS_OK;
+        }
+
+
     }
 
     return hRet;
